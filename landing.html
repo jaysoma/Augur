@@ -1,0 +1,32 @@
+<!doctype html><html><head><title>Acme Shop</title></head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/products">All Products</a>
+    <a href="/products/red-shoe">Red Shoe</a>
+    <a href="/cart">Cart</a>
+    <a href="/account/login">Login</a>
+  </nav>
+
+  <form action="/search" method="get" id="search">
+    <input type="text" name="q" placeholder="Search products">
+    <select name="category"><option value="all">All</option><option value="shoes">Shoes</option></select>
+    <button type="submit">Search</button>
+  </form>
+
+  <section class="product">
+    <h2>Red Shoe</h2>
+    <form action="/cart/add" method="post" class="add-to-cart">
+      <input type="hidden" name="product_id" value="42">
+      <input type="hidden" name="variant_id" value="42-red-10">
+      <input type="hidden" name="csrf_token" value="abc123">
+      <input type="number" name="quantity" value="1">
+      <button type="submit">Add to Cart</button>
+    </form>
+  </section>
+
+  <form action="/newsletter" method="post" id="newsletter">
+    <input type="email" name="email" placeholder="you@example.com">
+    <button type="submit">Subscribe</button>
+  </form>
+</body></html>

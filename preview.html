@@ -1,0 +1,163 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Augur â€” tree preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root{
+    --ink:#0a0d12; --panel:#0e1219; --panel2:#11161f;
+    --amber:#f0b54a; --amber-dim:#b9863a; --dim:#3a4150;
+    --text:#c7cdd6; --muted:#6b7480; --line:rgba(255,255,255,.07); --line-amber:rgba(240,181,74,.18);
+    --home:#f0b54a; --listing:#76c7ff; --product:#ffd470; --cart:#c79bff;
+    --checkout:#6fe0a6; --auth:#ff9d6b; --other:#9fb0c0; --error:#e05a5a;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0; background:var(--ink); color:var(--text); font-family:'Space Grotesk',system-ui,sans-serif;}
+  .wrap{max-width:1180px; margin:0 auto; padding:30px 28px; display:flex; flex-direction:column; min-height:100%;}
+  h1{font-weight:700; font-size:36px; margin:0 0 2px; letter-spacing:-.02em;} h1 em{font-style:normal; color:var(--amber)}
+  .tagline{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); margin-bottom:18px;}
+  .pane{background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden; display:flex; flex-direction:column; flex:1;}
+  .pane-header{padding:11px 16px; border-bottom:1px solid var(--line); font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber-dim); display:flex; align-items:center; gap:8px;}
+  .pane-header .right{margin-left:auto; color:var(--muted);}
+  .body{position:relative; overflow:hidden; height:clamp(460px,68vh,960px);}
+  svg.canvas{width:100%; height:100%; display:block;}
+  .link{fill:none; stroke:var(--line-amber); stroke-width:1.4px;}
+  .node rect{fill:var(--panel2); stroke-width:1.5px;}
+  .node .label{font-family:'IBM Plex Mono',monospace; font-size:11px; fill:var(--text); dominant-baseline:middle;}
+  .node.new rect{stroke:var(--amber)!important; stroke-width:2.5px;}
+  .legend{display:flex; flex-wrap:wrap; gap:6px 14px; padding:9px 14px; border-top:1px solid var(--line); background:rgba(10,13,18,.5);}
+  .legend span{font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.05em; color:var(--muted); display:inline-flex; align-items:center; gap:6px;}
+  .legend i{width:9px; height:9px; border-radius:50%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Aug<em>u</em>r</h1>
+  <div class="tagline">tree preview â€” baked sample store, real styling (no server needed)</div>
+  <div class="pane">
+    <div class="pane-header">Site tree <span class="right" id="count"></span></div>
+    <div class="body"><svg class="canvas"></svg></div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<script>
+// A rich, realistic store tree (parent-first order) to judge node + font presentation.
+const DATA=[
+  ["/","",                         "home","Aurora Outfitters"],
+  ["/t/mens","/",                  "listing","Men's"],
+  ["/t/womens","/",                "listing","Women's"],
+  ["/t/gear","/",                  "listing","Gear"],
+  ["/t/sale","/",                  "listing","Sale"],
+  ["/cart","/",                    "cart","Cart (2)"],
+  ["/account/login","/",           "auth","Sign in"],
+
+  ["/t/mens/jackets","/t/mens",        "listing","Men's jackets"],
+  ["/t/mens/footwear","/t/mens",       "listing","Men's footwear"],
+  ["/t/mens/baselayers","/t/mens",     "listing","Base layers"],
+  ["/t/mens?page=2","/t/mens",         "listing","Men's Â· page 2"],
+
+  ["/products/summit-down-parka","/t/mens/jackets",  "product","Summit Down Parka"],
+  ["/products/alpine-3l-shell","/t/mens/jackets",    "product","Alpine 3L Shell"],
+  ["/products/storm-anorak","/t/mens/jackets",       "product","Storm Anorak"],
+  ["/products/trail-runner-gtx","/t/mens/footwear",  "product","Trail Runner GTX"],
+  ["/products/summit-boot","/t/mens/footwear",       "product","Summit Boot"],
+  ["/products/merino-crew","/t/mens/baselayers",     "product","Merino Crew"],
+
+  ["/t/womens/jackets","/t/womens",    "listing","Women's jackets"],
+  ["/t/womens/packs","/t/womens",      "listing","Women's packs"],
+  ["/products/aurora-parka","/t/womens/jackets",   "product","Aurora Parka"],
+  ["/products/mistral-windbreaker","/t/womens/jackets","product","Mistral Windbreaker"],
+  ["/products/tarn-12l-daypack","/t/womens/packs", "product","Tarn 12L Daypack"],
+  ["/products/summit-45-pack","/t/womens/packs",   "product","Summit 45 Pack"],
+
+  ["/t/gear/tents","/t/gear",          "listing","Tents"],
+  ["/t/gear/sleep","/t/gear",          "listing","Sleep"],
+  ["/t/gear/cooking","/t/gear",        "listing","Cooking"],
+  ["/products/cirrus-2p-tent","/t/gear/tents",   "product","Cirrus 2P Tent"],
+  ["/products/basecamp-4p","/t/gear/tents",      "product","Basecamp 4P"],
+  ["/products/down-bag-0f","/t/gear/sleep",      "product","Down Bag 0Â°F"],
+  ["/products/featherlite-pad","/t/gear/sleep",  "product","Featherlite Pad"],
+  ["/products/trail-stove","/t/gear/cooking",    "product","Trail Stove"],
+
+  ["/products/aurora-parka#cart","/products/aurora-parka", "cart","Added to cart"],
+  ["/checkout","/cart",                "checkout","Checkout"],
+  ["/checkout/shipping","/checkout",   "checkout","Shipping"],
+  ["/checkout/payment","/checkout",    "checkout","Payment"],
+  ["/account/register","/account/login","auth","Create account"],
+  ["/account/orders","/account/login", "auth","Orders"],
+].map(d=>({id:d[0],parentId:d[1],type:d[2],summary:d[3]}));
+
+const TYPES=["home","listing","product","cart","checkout","auth","other","error"];
+const color=t=>getComputedStyle(document.documentElement).getPropertyValue("--"+(TYPES.includes(t)?t:"other")).trim();
+const legend=document.getElementById("legend");
+TYPES.forEach(t=>{const s=document.createElement("span"); s.innerHTML='<i style="background:'+color(t)+'"></i>'+t; legend.appendChild(s);});
+
+const svg=d3.select("svg.canvas");
+const gZoom=svg.append("g"), gLink=gZoom.append("g"), gNode=gZoom.append("g");
+const zoom=d3.zoom().scaleExtent([0.1,2.5]).on("zoom",e=>gZoom.attr("transform",e.transform));
+svg.call(zoom);
+
+function pathOf(url){ const p=(url.split("#")[0]).replace(/\/$/,""); return p===""?"/":p; }
+function chipLabel(d){ const l=pathOf(d.id); return l.length>30 ? l.slice(0,29)+"â€¦" : l; }
+function chipW(d){ return Math.min(250, chipLabel(d).length*6.7 + 42); }
+
+let shown=[];
+function render(newId){
+  const root=d3.stratify().id(d=>d.id).parentId(d=>d.parentId)(shown);
+  // Windows-Explorer style: indented tree. Each node gets its own row (pre-order):
+  // depth -> horizontal indent, row order -> vertical position. Root sits at top-left.
+  const INDENT=30, ROW=34;
+  let _row=0;
+  root.eachBefore(d=>{ d.dx=d.depth*INDENT; d.dy=(_row++)*ROW; });   // dx=indent (screen x), dy=row (screen y)
+  const nodes=root.descendants(), links=root.links();
+  document.getElementById("count").textContent=nodes.length+" pages";
+  const px=d=>d.dx+chipW(d)/2;   // translate-x so the chip's LEFT edge lands on the indent
+  const py=d=>d.dy;
+
+  // right-angle (elbow) connectors, like a file tree: down the parent's gutter, then across
+  const linkPath=d=>{ const gx=d.source.dx+12,gy=d.source.dy+13,cy=d.target.dy,cx=d.target.dx;
+    return `M${gx},${gy} V${cy} H${cx}`; };
+  const link=gLink.selectAll("path.link").data(links,d=>d.target.id);
+  link.exit().remove();
+  link.enter().append("path").attr("class","link").attr("opacity",0)
+    .merge(link).transition().duration(450).attr("opacity",1).attr("d",linkPath);
+
+  const node=gNode.selectAll("g.node").data(nodes,d=>d.id);
+  node.exit().remove();
+  const ent=node.enter().append("g").attr("class","node")
+      .attr("transform",d=>"translate("+(d.parent?px(d.parent):px(d))+","+(d.parent?py(d.parent):py(d))+")")
+      .attr("opacity",0);
+  ent.append("title").text(d=>pathOf(d.id)+"  Â·  ["+d.data.type+"]  "+(d.data.summary||""));
+  ent.append("rect").attr("height",26).attr("rx",6).attr("ry",6)
+      .attr("width",chipW).attr("x",d=>-chipW(d)/2).attr("y",-13)
+      .attr("stroke",d=>color(d.data.type));
+  ent.append("circle").attr("r",3.6).attr("cy",0).attr("cx",d=>-chipW(d)/2+13).attr("fill",d=>color(d.data.type));
+  ent.append("text").attr("class","label").attr("x",d=>-chipW(d)/2+24).attr("y",1).text(chipLabel);
+  ent.merge(node).classed("new",d=>d.id===newId)
+    .transition().duration(450).attr("transform",d=>"translate("+px(d)+","+py(d)+")").attr("opacity",1);
+
+  fit(nodes);
+}
+function fit(nodes){
+  const minX=Math.min(...nodes.map(n=>n.dx)), maxX=Math.max(...nodes.map(n=>n.dx+chipW(n)));
+  const minY=Math.min(...nodes.map(n=>n.dy)), maxY=Math.max(...nodes.map(n=>n.dy));
+  const b=svg.node().getBoundingClientRect(); let w=b.width||980,h=b.height||560;
+  const bw=(maxX-minX)+120,bh=(maxY-minY)+120;
+  let k=Math.min(1.05,0.92*Math.min(w/bw,h/bh)); if(!isFinite(k)||k<=0) k=0.8;
+  const tx=40-k*minX, ty=40-k*minY;
+  svg.transition().duration(450).call(zoom.transform,d3.zoomIdentity.translate(tx,ty).scale(k));
+}
+
+// staggered reveal â€” mimics the live build
+let i=0;
+(function step(){ if(i>=DATA.length) return; shown.push(DATA[i]); render(DATA[i].id); i++; setTimeout(step,140); })();
+</script>
+</body>
+</html>
