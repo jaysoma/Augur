@@ -220,7 +220,7 @@ function start(){
   const target=document.getElementById("target").value.trim();
   document.getElementById("go").disabled=true; setLive(true); startClock(); setStatus("crawling "+target);
   pushText("> crawling "+target+"\n");
-  es=new EventSource("/crawl?target="+encodeURIComponent(target));
+  es=new EventSource("crawl?target="+encodeURIComponent(target));
   es.onmessage=e=>{
     const ev=JSON.parse(e.data);
     if(ev.event==="node"){ addNode(ev); pushText(narrate(ev)); setStatus("discovered "+ev.index+" pages"); }

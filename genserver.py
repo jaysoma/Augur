@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 OLLAMA = os.environ.get("TESTER_OLLAMA", "http://localhost:11434")
-MODEL  = os.environ.get("GENSERVER_MODEL", os.environ.get("TESTER_MODEL", "llama3.2:3b"))
+MODEL  = os.environ.get("GENSERVER_MODEL", os.environ.get("TESTER_MODEL", "qwen2.5:3b"))
 PORT   = int(os.environ.get("GENSERVER_PORT", 3000))
 
 STORE = os.environ.get("GENSERVER_STORE",
